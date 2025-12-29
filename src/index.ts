@@ -1,9 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
 
+type NamedDurableObjectId = DurableObjectId & { name?: string };
+
 
 export class QuizCrocGameDO extends DurableObject<Env> {
 
 	sessions: Map<WebSocket, { [key: string]: string }>;
+	gameId?: string;
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
@@ -28,6 +31,16 @@ export class QuizCrocGameDO extends DurableObject<Env> {
 	}
 
 	async fetch(request: Request): Promise<Response> {
+		if (!this.gameId) {
+			const url = new URL(request.url);
+			const gameMatch = url.pathname.match(/^\/game-ws\/([^/]+)\/?$/);
+			if (gameMatch) {
+				this.gameId = gameMatch[1];
+			} else {
+				throw new Error('Missing gameId on Durable Object id (expected idFromName)');
+			}
+		}
+
 		// Creates two ends of a WebSocket connection.
 		const webSocketPair = new WebSocketPair();
 		const [client, server] = Object.values(webSocketPair);
@@ -63,14 +76,14 @@ export class QuizCrocGameDO extends DurableObject<Env> {
 
 		// Send a message to all WebSocket connections, loop over all the connected WebSockets.
 		this.sessions.forEach((attachment, connectedWs) => {
-			connectedWs.send(`[Durable Object] message: ${message}, from: ${session.id}, to: all clients. Total connections: ${this.sessions.size}`);
+			connectedWs.send(`[Durable Object] Game ID: ${this.gameId} | message: ${message}, from: ${session.id}, to: all clients. Total connections: ${this.sessions.size}`);
 		});
 
 		// Send a message to all WebSocket connections except the connection (ws),
 		// loop over all the connected WebSockets and filter out the connection (ws).
 		this.sessions.forEach((attachment, connectedWs) => {
 			if (connectedWs !== ws) {
-				connectedWs.send(`[Durable Object] message: ${message}, from: ${session.id}, to: all clients except the initiating client. Total connections: ${this.sessions.size}`);
+				connectedWs.send(`[Durable Object] Game ID: ${this.gameId} | message: ${message}, from: ${session.id}, to: all clients except the initiating client. Total connections: ${this.sessions.size}`);
 			}
 		});
 	}
@@ -89,31 +102,36 @@ export class QuizCrocGameDO extends DurableObject<Env> {
 export default {
 	
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-		if (request.url.endsWith('/game-ws')) {
-		// Expect to receive a WebSocket Upgrade request.
-		// If there is one, accept the request and return a WebSocket Response.
-		const upgradeHeader = request.headers.get('Upgrade');
-		if (!upgradeHeader || upgradeHeader !== 'websocket') {
-			return new Response('Worker expected Upgrade: websocket', {
-			status: 426,
-			});
-		}
+		const url = new URL(request.url);
+		const gameMatch = url.pathname.match(/^\/game-ws\/([^/]+)\/?$/);
 
-		if (request.method !== 'GET') {
-			return new Response('Worker expected GET method', {
-			status: 400,
-			});
-		}
+		if (gameMatch) {
+			const gameId = gameMatch[1];
 
-		// Since we are hard coding the Durable Object ID by providing the constant name 'foo',
-		// all requests to this Worker will be sent to the same Durable Object instance.
-		let stub = env.QUIZ_CROC_GAME_DO.getByName("foo");
+			// Expect to receive a WebSocket Upgrade request.
+			// If there is one, accept the request and return a WebSocket Response.
+			const upgradeHeader = request.headers.get('Upgrade');
+			if (!upgradeHeader || upgradeHeader !== 'websocket') {
+				return new Response('Worker expected Upgrade: websocket', {
+				status: 426,
+				});
+			}
 
-		return stub.fetch(request);
+			if (request.method !== 'GET') {
+				return new Response('Worker expected GET method', {
+				status: 400,
+				});
+			}
+
+			// Route each game ID to its own Durable Object instance.
+			const doId = env.QUIZ_CROC_GAME_DO.idFromName(gameId);
+			let stub = env.QUIZ_CROC_GAME_DO.get(doId);
+
+			return stub.fetch(request);
 		}
 
 		return new Response(
-			`Supported endpoints: /game-ws: Expects a WebSocket upgrade request`,
+			`Supported endpoints: /game-ws/{gameId}: Expects a WebSocket upgrade request`,
 			{
 				status: 200,
 				headers: {
