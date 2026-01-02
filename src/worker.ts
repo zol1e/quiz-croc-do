@@ -32,7 +32,7 @@ export async function handleRequest(request: Request, env: Env, ctx: ExecutionCo
 
     const createMatch = url.pathname.match(/^\/game\/create\/?$/);
     if (createMatch) {
-        if (request.method !== 'PUT') {
+        if (request.method !== 'POST') {
             return new Response('Worker expected PUT method for quiz creation', {
                 status: 405,
             });
