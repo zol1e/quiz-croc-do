@@ -46,8 +46,8 @@ export async function handleRequest(request: Request, env: Env, ctx: ExecutionCo
         const geminiModel = env.GEMINI_MODEL ?? "gemini-2.5-flash-lite";
         const questionGenerator = new QuestionGenerator(apiKey, geminiModel);
         
-        const generatedQuiz = await questionGenerator.generateQuestions(topic);
-        //const generatedQuiz = mockGeneratedQuiz;
+        //const generatedQuiz = await questionGenerator.generateQuestions(topic);
+        const generatedQuiz = mockGeneratedQuiz;
 
         // Route each game ID to its own Durable Object instance
         const doId = env.QUIZ_CROC_GAME_DO.idFromName(gameId);

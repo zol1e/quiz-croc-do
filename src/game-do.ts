@@ -84,7 +84,9 @@ export class QuizCrocGameDO extends DurableObject<Env> {
 
 	async alarm() {
 		console.log("Alarm triggered");
-		this.getGame().timeUp(this.timeScheduler?.getQuestionId()!);
+		const game = this.getGame()
+		game.timeUp(this.timeScheduler?.getQuestionId()!);
+		await this.saveGame(game);
 	}
 
 	async fetch(request: Request): Promise<Response> {
@@ -127,8 +129,12 @@ export class QuizCrocGameDO extends DurableObject<Env> {
 			} else {
 				await handleGameMessage(game, gameMessage, game.getPlayer(gameMessage.playerId).getEventListener());
 			}
-			await this.ctx.storage.put("game", JSON.stringify(game));
+			await this.saveGame(game);
 		});
+	}
+
+	private async saveGame(game: Game) {
+		await this.ctx.storage.put("game", JSON.stringify(game));
 	}
 
 	async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean) {
