@@ -162,7 +162,7 @@ export class Game {
 	computeScore(): Record<string, number> {
 		this.score = Object.fromEntries(this.getPlayerIds().map(playerId => [playerId, 0]));
 		for (const question of this.usedQuestions) {
-			if (question === this.currentQuestion) continue;
+			if (question.id === this.currentQuestion?.id) continue;
 
 			const questionScore = question.getScore();
 			for (const playerId in this.score) {

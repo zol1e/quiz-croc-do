@@ -5,7 +5,13 @@ export default {
 
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		try {
-			return handleRequest(request, env, ctx);
+
+			const url = new URL(request.url);
+			if (url.pathname.startsWith("/game/")) {
+      			return handleRequest(request, env, ctx);
+    		}
+			return env.ASSETS.fetch(request);
+
 		} catch (err: any) {
 			const status = err.status || 500;
 			return new Response(JSON.stringify({ error: err.message }), {

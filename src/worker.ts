@@ -1,6 +1,13 @@
 import { QuestionGenerator } from "./question/question-generator";
 
 
+export const corsHeaders = {
+  "Access-Control-Allow-Origin": "http://localhost:8081",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+
 export async function handleRequest(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
@@ -14,12 +21,18 @@ export async function handleRequest(request: Request, env: Env, ctx: ExecutionCo
         if (!upgradeHeader || upgradeHeader !== 'websocket') {
             return new Response('Worker expected Upgrade: websocket', {
                 status: 426,
+                headers: {
+                  ...corsHeaders,
+                },
             });
         }
 
         if (request.method !== 'GET') {
             return new Response('Worker expected GET method', {
                 status: 400,
+                headers: {
+                  ...corsHeaders,
+                },
             });
         }
 
@@ -46,8 +59,9 @@ export async function handleRequest(request: Request, env: Env, ctx: ExecutionCo
         const geminiModel = env.GEMINI_MODEL ?? "gemini-2.5-flash-lite";
         const questionGenerator = new QuestionGenerator(apiKey, geminiModel);
         
-        //const generatedQuiz = await questionGenerator.generateQuestions(topic);
-        const generatedQuiz = mockGeneratedQuiz;
+        const generatedQuiz = await questionGenerator.generateQuestions(topic);
+        console.log(JSON.stringify(generatedQuiz));
+        //const generatedQuiz = mockGeneratedQuiz;
 
         // Route each game ID to its own Durable Object instance
         const doId = env.QUIZ_CROC_GAME_DO.idFromName(gameId);
@@ -59,6 +73,7 @@ export async function handleRequest(request: Request, env: Env, ctx: ExecutionCo
         return new Response(JSON.stringify({ gameId, quiz: generatedQuiz }), {
             status: 200,
             headers: {
+                ...corsHeaders,
                 "Content-Type": "application/json",
             },
         });
@@ -69,6 +84,7 @@ export async function handleRequest(request: Request, env: Env, ctx: ExecutionCo
         {
             status: 200,
             headers: {
+                ...corsHeaders,
                 'Content-Type': 'text/plain',
             },
         }

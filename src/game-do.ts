@@ -7,6 +7,7 @@ import { handleGameMessage } from "./event/game-message-handler";
 import { WebSocketGameEventListener } from "./event/game-event-listener";
 import { Player } from "./engine/player";
 import { Question } from "./question/question";
+import { corsHeaders } from "./worker";
 
 
 export class QuizCrocGameDO extends DurableObject<Env> {
@@ -114,9 +115,14 @@ export class QuizCrocGameDO extends DurableObject<Env> {
 		return new Response(null, {
 			status: 101,
 			webSocket: client,
+			headers: {
+            	...corsHeaders,
+            },
 		});
 	}
 	async webSocketMessage(ws: WebSocket, message: ArrayBuffer | string) {
+		console.log(`WebSocket message received ${message}`);
+
 		const game = this.getGame();
 		// Get the session associated with the WebSocket connection.
 		const session = this.sessions.get(ws)!;

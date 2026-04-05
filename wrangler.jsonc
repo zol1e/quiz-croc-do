@@ -25,7 +25,12 @@
 	},
 	"observability": {
 		"enabled": true
-	}
+	},
+	"assets": {
+    	"directory": "./dist/",
+    	"not_found_handling": "single-page-application",
+		"binding": "ASSETS",
+  	}
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
