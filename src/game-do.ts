@@ -1,12 +1,14 @@
 import { DurableObject } from "cloudflare:workers";
 import { GeneratedQuiz } from "./question/question-generator";
 import { Game } from "./engine/game";
+import { GameEngine } from "./engine/game-engine";
 import { AlarmTimeScheduler } from "./engine/time-scheduler";
 import { GameMessage, GameMessageType } from "./event/game-message";
 import { handleGameMessage } from "./event/game-message-handler";
 import { WebSocketGameEventListener } from "./event/game-event-listener";
 import { Player } from "./engine/player";
 import { Question } from "./question/question";
+import { Game as GameData } from "./model/game";
 import { corsHeaders } from "./worker";
 
 
@@ -14,7 +16,7 @@ export class QuizCrocGameDO extends DurableObject<Env> {
 
 	sessions: Map<WebSocket, { [key: string]: string }>;
 
-	game?: Game;
+	game?: GameEngine;
 	timeScheduler?: AlarmTimeScheduler;
 
 	constructor(ctx: DurableObjectState, env: Env) {
@@ -28,24 +30,18 @@ export class QuizCrocGameDO extends DurableObject<Env> {
 		this.ctx.blockConcurrencyWhile(async () => {
 			const gameJson = await this.ctx.storage.get("game");
 			if (gameJson) {
-				const gameObj = JSON.parse(gameJson as string);
-				this.game = Game.fromState(
-					gameObj.id,
-					gameObj.topic,
-					Object.values(gameObj.eventListenersByPlayerId),
-					gameObj.unusedQuestions,
-					gameObj.usedQuestions,
-					gameObj.currentQuestion,
-					gameObj.state,
-					this.createTimeScheduler(),
-				)
+				const gameObj = this.parseGameFromStorage(gameJson as string);
+				this.game = GameEngine.fromStoredState(gameObj, this.createTimeScheduler());
 			}
 
 			const playersBySessionId = new Map<string, Player>();
 			if (this.game) {
 				const game = this.getGame();
 				for (const player of game.getPlayers()) {
-					playersBySessionId.set(player.getEventListener().getSessionId(), player);
+					const sessionId = game.getPlayerSessionHandler().getSessionIdByPlayerId(player.playerId);
+					if (sessionId) {
+						playersBySessionId.set(sessionId, player);
+					}
 				}
 			}
 
@@ -62,7 +58,7 @@ export class QuizCrocGameDO extends DurableObject<Env> {
 				const sessionId = this.sessions.get(ws)!.id;
 				const player = playersBySessionId.get(sessionId);
 				if (player) {
-					player.setEventListener(new WebSocketGameEventListener(ws, sessionId));
+					this.game?.getPlayerSessionHandler().setListener(player.playerId, new WebSocketGameEventListener(ws, sessionId));
 				};
 			});
 
@@ -76,7 +72,7 @@ export class QuizCrocGameDO extends DurableObject<Env> {
 		return this.timeScheduler;
 	}
 
-	getGame(): Game {
+	getGame(): GameEngine {
 		if (!this.game) {
 			throw new Error('Game does not exist!');
 		}
@@ -133,14 +129,16 @@ export class QuizCrocGameDO extends DurableObject<Env> {
 				await this.ctx.storage.put(session.id, gameMessage.playerId);
 				await handleGameMessage(game, gameMessage, new WebSocketGameEventListener(ws, session.id));
 			} else {
-				await handleGameMessage(game, gameMessage, game.getPlayer(gameMessage.playerId).getEventListener());
+				await handleGameMessage(game, gameMessage, game.getPlayerSessionHandler().getListener(gameMessage.playerId));
 			}
 			await this.saveGame(game);
 		});
 	}
 
 	private async saveGame(game: Game) {
-		await this.ctx.storage.put("game", JSON.stringify(game));
+		const gameState = game.getState() as GameData & { playerSessionsByPlayerId?: Record<string, string> };
+		gameState.playerSessionsByPlayerId = game.getPlayerSessionHandler().serializeSessions();
+		await this.ctx.storage.put("game", JSON.stringify(gameState));
 	}
 
 	async webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean) {
@@ -153,12 +151,59 @@ export class QuizCrocGameDO extends DurableObject<Env> {
 		const generatedQuiz: GeneratedQuiz = JSON.parse(generatedQuizJson);
 		console.log(`Quiz name: ${generatedQuiz.quizName}! Game ID: ${gameId}`);
 		console.log(generatedQuiz.questions);
-		this.game = new Game(
-			gameId, 
-			generatedQuiz.quizName, 
-			generatedQuiz.questions.map(q => Question.fromQuestionObj(q)), 
-			this.createTimeScheduler()
+		const gameData = new GameData(
+			gameId,
+			generatedQuiz.quizName,
+			generatedQuiz.questions.map(q => this.parseQuestion(q))
 		);
-		await this.ctx.storage.put("game", JSON.stringify(this.game));
+		this.game = GameEngine.fromStoredState(gameData, this.createTimeScheduler());
+		await this.saveGame(this.game);
+	}
+
+	private parseQuestion(questionObj: Question): Question {
+		const question = new Question(
+			questionObj.id,
+			questionObj.text,
+			questionObj.sourceUrl,
+			questionObj.correctAnswer,
+			questionObj.alternativeAnswers
+		);
+		question.score = questionObj.score ?? question.score;
+		question.timeMillis = questionObj.timeMillis ?? question.timeMillis;
+		question.playerAnswers = questionObj.playerAnswers ?? {};
+		question.startedAt = questionObj.startedAt ? new Date(questionObj.startedAt) : null;
+		question.finishTime = questionObj.finishTime ? new Date(questionObj.finishTime) : null;
+		return question;
+	}
+
+	private parseGameFromStorage(gameJson: string): GameData {
+		const gameObj = JSON.parse(gameJson) as any;
+		const questions = (gameObj.unusedQuestions ?? []).map((q: Question) => this.parseQuestion(q));
+		const game = new GameData(gameObj.id, gameObj.topic, questions);
+		game.usedQuestions = (gameObj.usedQuestions ?? []).map((q: Question) => this.parseQuestion(q));
+		game.currentQuestion = gameObj.currentQuestion ? this.parseQuestion(gameObj.currentQuestion) : null;
+		game.state = gameObj.state;
+		game.score = gameObj.score ?? {};
+
+		if (gameObj.playersByPlayerId) {
+			for (const player of Object.values(gameObj.playersByPlayerId) as Player[]) {
+				game.playersByPlayerId[player.playerId] = new Player(player.playerId, player.spectator);
+			}
+		} else if (gameObj.eventListenersByPlayerId) {
+			for (const player of Object.values(gameObj.eventListenersByPlayerId) as any[]) {
+				game.playersByPlayerId[player.playerId] = new Player(player.playerId, player.spectator ?? false);
+			}
+			const sessions: Record<string, string> = {};
+			for (const player of Object.values(gameObj.eventListenersByPlayerId) as any[]) {
+				sessions[player.playerId] = player.eventListener?.sessionId ?? player.playerId;
+			}
+			(game as unknown as { playerSessionsByPlayerId: Record<string, string> }).playerSessionsByPlayerId = sessions;
+		}
+
+		if (gameObj.playerSessionsByPlayerId) {
+			(game as unknown as { playerSessionsByPlayerId: Record<string, string> }).playerSessionsByPlayerId = gameObj.playerSessionsByPlayerId;
+		}
+
+		return game;
 	}
 }
