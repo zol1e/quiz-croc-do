@@ -1,14 +1,13 @@
 import { DurableObject } from "cloudflare:workers";
 import { GeneratedQuiz } from "./question/question-generator";
-import { Game } from "./engine/game";
 import { GameEngine } from "./engine/game-engine";
 import { AlarmTimeScheduler } from "./engine/time-scheduler";
 import { GameMessage, GameMessageType } from "./event/game-message";
 import { handleGameMessage } from "./event/game-message-handler";
 import { WebSocketGameEventListener } from "./event/game-event-listener";
-import { Player } from "./engine/player";
 import { Question } from "./question/question";
 import { Game as GameData } from "./model/game";
+import { Player } from "./model/player";
 import { corsHeaders } from "./worker";
 
 
@@ -135,7 +134,7 @@ export class QuizCrocGameDO extends DurableObject<Env> {
 		});
 	}
 
-	private async saveGame(game: Game) {
+	private async saveGame(game: GameEngine) {
 		const gameState = game.getState() as GameData & { playerSessionsByPlayerId?: Record<string, string> };
 		gameState.playerSessionsByPlayerId = game.getPlayerSessionHandler().serializeSessions();
 		await this.ctx.storage.put("game", JSON.stringify(gameState));

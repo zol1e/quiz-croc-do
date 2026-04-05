@@ -1,9 +1,9 @@
-import { Game } from "../engine/game";
+import { GameEngine } from "../engine/game-engine";
 import { GameEventListener } from "./game-event-listener";
 import { GameMessage, GameMessageType } from "./game-message";
 
 
-export async function handleGameMessage(game: Game, gameMessage: GameMessage, gameEventListener: GameEventListener) {
+export async function handleGameMessage(game: GameEngine, gameMessage: GameMessage, gameEventListener: GameEventListener) {
 	switch (gameMessage.gameMessageType as GameMessageType) {
 		case GameMessageType.JOIN: {
 			game.addPlayer(gameMessage.playerId, gameEventListener);
