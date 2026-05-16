@@ -1,4 +1,4 @@
-import { Question } from "../question/question";
+import { Question } from "../model/question";
 
 
 export enum GameState {
