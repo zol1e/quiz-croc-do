@@ -1,4 +1,5 @@
-import { QuestionGenerator } from "./question/question-generator";
+import { createQuestionGenerator } from "./question/question-generator-factory";
+import { createQuizGenerationConfigFromEnv } from "./question/quiz-generation-config";
 
 
 export const corsHeaders = {
@@ -55,9 +56,8 @@ export async function handleRequest(request: Request, env: Env, ctx: ExecutionCo
         const gameId = Array.from(gameIdBytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 
         const topic = url.searchParams.get("topic") ?? (() => { throw new Error("Missing quiz topic!"); })();
-        const apiKey = env.GOOGLE_AI_API_KEY ?? (() => { throw new Error("Missing AI_API_KEY"); })();
-        const geminiModel = env.GEMINI_MODEL ?? "gemini-2.5-flash-lite";
-        const questionGenerator = new QuestionGenerator(apiKey, geminiModel);
+        const generationConfig = createQuizGenerationConfigFromEnv(env);
+        const questionGenerator = createQuestionGenerator(env, generationConfig);
         
         const generatedQuiz = await questionGenerator.generateQuestions(topic);
         console.log(JSON.stringify(generatedQuiz));

@@ -1,14 +1,14 @@
 import { DurableObject } from "cloudflare:workers";
-import { GeneratedQuiz } from "./question/question-generator";
+import { GeneratedQuiz } from "./question/types";
 import { GameEngine } from "./engine/game-engine";
 import { AlarmTimeScheduler } from "./engine/time-scheduler";
 import { GameMessage, GameMessageType } from "./event/game-message";
 import { handleGameMessage } from "./event/game-message-handler";
 import { WebSocketGameEventListener } from "./event/game-event-listener";
-import { Question } from "./question/question";
 import { Game as GameData } from "./model/game";
 import { Player } from "./model/player";
 import { corsHeaders } from "./worker";
+import { Question } from "./model/question";
 
 
 export class QuizCrocGameDO extends DurableObject<Env> {
