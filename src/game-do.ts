@@ -80,8 +80,11 @@ export class QuizCrocGameDO extends DurableObject<Env> {
 
 	async alarm() {
 		console.log("Alarm triggered");
-		const game = this.getGame()
-		game.timeUp(this.timeScheduler?.getQuestionId()!);
+		const game = this.getGame();
+		const questionId = this.timeScheduler?.getQuestionId() ?? game.getState().currentQuestion?.id;
+		if (questionId) {
+			game.timeUp(questionId);
+		}
 		await this.saveGame(game);
 	}
 

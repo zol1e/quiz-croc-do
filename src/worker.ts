@@ -97,30 +97,35 @@ const mockGeneratedQuiz =
   quizName: 'Harry Potter Trivia',
   questions: [
     {
+      id: "0",
       text: 'How many points is the Golden Snitch worth?',
       correctAnswer: '150',
       alternativeAnswers: '',
       sourceUrl: 'https://harrypotter.fandom.com/wiki/Golden_Snitch'
     },
     {
+      id: "1",
       text: "What is the number of Harry Potter's parents?",
       correctAnswer: '2',
       alternativeAnswers: '',
       sourceUrl: 'https://harrypotter.fandom.com/wiki/James_Potter'
     },
     {
+      id: "2",
       text: 'What is the primary ingredient in a Polyjuice Potion?',
       correctAnswer: 'Knotgrass',
       alternativeAnswers: 'Fluxweed;Knotgrass;Lacewing Flies;Leeches',
       sourceUrl: 'https://harrypotter.fandom.com/wiki/Polyjuice_Potion'
     },
     {
+      id: "3",
       text: 'What is the name of the Weasley twins?',
       correctAnswer: 'Fred and George',
       alternativeAnswers: 'Ron and Bill;Fred and George;Arthur and Percy;Charlie and Bill',
       sourceUrl: 'https://harrypotter.fandom.com/wiki/Weasley_twins'
     },
     {
+      id: "4",
       text: "What is the core of Harry Potter's wand?",
       correctAnswer: 'Phoenix feather',
       alternativeAnswers: 'Dragon heartstring;Unicorn hair;Phoenix feather;Veela hair',

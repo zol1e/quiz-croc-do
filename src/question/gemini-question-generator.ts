@@ -21,6 +21,7 @@ export class GeminiQuestionGenerator implements IQuestionGenerator {
     const prompt = buildQuestionPrompt(topic, this.config);
     const resultText = await this.executePrompt(prompt);
     const rawQuiz = JSON.parse(resultText) as RawGeneratedQuiz;
+    console.log("Raw quiz: ", rawQuiz);
     validateGeneratedQuiz(rawQuiz, this.config);
     return mapRawQuizToGeneratedQuiz(rawQuiz);
   }

@@ -1,10 +1,17 @@
-import { handleRequest } from "./worker";
+import { handleRequest, corsHeaders } from "./worker";
 export { QuizCrocGameDO } from "./game-do";
 
 export default {
 
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
 		try {
+			// Handle CORS preflight requests
+			if (request.method === "OPTIONS") {
+				return new Response(null, {
+					status: 204,
+					headers: corsHeaders,
+				});
+			}
 
 			const url = new URL(request.url);
 			if (url.pathname.startsWith("/game/")) {
@@ -16,7 +23,10 @@ export default {
 			const status = err.status || 500;
 			return new Response(JSON.stringify({ error: err.message }), {
 				status,
-				headers: { "Content-Type": "application/json" },
+				headers: { 
+					...corsHeaders,
+					"Content-Type": "application/json" 
+				},
 			});
 		}
 	},

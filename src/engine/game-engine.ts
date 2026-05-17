@@ -65,7 +65,9 @@ export class GameEngine {
   }
 
   timeUp(questionId: string) {
+    console.log("Time up for question " + questionId);
     if (this.game.currentQuestion != null && this.game.currentQuestion.id === questionId) {
+      console.log("Finish question");
       this.finishQuestion();
     }
   }
